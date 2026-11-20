@@ -1,0 +1,208 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#14524a">
+<title>Sổ nợ hai bên</title>
+<style>
+:root{--bg:#f3f1ec;--card:#fff;--ink:#1d2b2a;--mute:#6b7775;--line:#ddd8cd;--debt:#b4432f;--pay:#1f7a5c;--accent:#14524a}
+@media (prefers-color-scheme:dark){:root{--bg:#161d1c;--card:#1f2827;--ink:#e8efed;--mute:#93a29f;--line:#33403e;--debt:#e8806b;--pay:#5fcf9f;--accent:#5fcf9f}}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);font:16px/1.5 "Be Vietnam Pro","Segoe UI",system-ui,sans-serif}
+main{max-width:860px;margin:0 auto;padding:28px 16px 60px}
+h1{font-size:1.6rem;margin:0 0 4px}
+.sub{color:var(--mute);margin:0 0 22px}
+.card{background:var(--card);border:1px solid var(--line);border-radius:10px;padding:18px;margin-bottom:16px}
+.parties{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+label{display:block;font-size:.85rem;color:var(--mute);margin-bottom:4px}
+input,select,button{font:inherit;color:inherit}
+input,select{width:100%;padding:9px 10px;border:1px solid var(--line);border-radius:6px;background:var(--bg)}
+input:focus-visible,select:focus-visible,button:focus-visible{outline:2px solid var(--accent);outline-offset:1px}
+.remain{display:flex;flex-wrap:wrap;align-items:baseline;justify-content:space-between;gap:8px}
+.remain .big{font-size:2.6rem;font-weight:700;letter-spacing:-.02em;color:var(--debt);font-variant-numeric:tabular-nums}
+.remain .big.zero{color:var(--pay)}
+.who{font-size:1.05rem}
+.stats{display:flex;gap:24px;margin-top:10px;color:var(--mute);font-size:.95rem}
+.stats b{color:var(--ink);font-variant-numeric:tabular-nums}
+.form{display:grid;grid-template-columns:130px 140px 1fr 150px auto;gap:10px;align-items:end}
+button{cursor:pointer;border:0;border-radius:6px;padding:10px 16px;background:var(--accent);color:#fff;font-weight:600}
+@media (prefers-color-scheme:dark){button{color:#0d1a18}}
+button.ghost{background:transparent;color:var(--mute);border:1px solid var(--line);font-weight:500}
+button.x{background:none;color:var(--mute);padding:2px 8px;font-size:1.1rem}
+.tablewrap{overflow-x:auto}
+table{width:100%;border-collapse:collapse;min-width:720px}
+th,td{text-align:left;padding:9px 8px;border-bottom:1px solid var(--line)}
+th{font-size:.85rem;color:var(--mute);font-weight:500}
+td.n,th.n{text-align:right;font-variant-numeric:tabular-nums}
+.debt{color:var(--debt)}.pay{color:var(--pay)}
+.empty{color:var(--mute);padding:18px 0;text-align:center}
+.toast{position:fixed;left:50%;bottom:24px;transform:translateX(-50%);background:var(--pay);color:#fff;padding:12px 18px;border-radius:8px;max-width:90%;display:none}
+.toast.err{background:var(--debt)}
+html{-webkit-text-size-adjust:100%}
+button{touch-action:manipulation}
+.toast{bottom:calc(24px + env(safe-area-inset-bottom))}
+@media (max-width:720px){
+  main{padding:16px 12px calc(40px + env(safe-area-inset-bottom))}
+  h1{font-size:1.35rem}
+  .card{padding:14px}
+  .parties{grid-template-columns:1fr}
+  .remain .big{font-size:2.2rem}
+  .stats{flex-direction:column;gap:2px}
+  input,select,button{min-height:46px}
+  .form{grid-template-columns:1fr 1fr}
+  .form .wide{grid-column:1/-1}
+  #add{grid-column:1/-1;font-size:1.05rem}
+  #reset{width:100%}
+  .tablewrap{overflow:visible}
+  table,tbody{display:block;min-width:0}
+  thead{display:none}
+  tbody tr{display:block;position:relative;padding:10px 46px 10px 0;border-bottom:1px solid var(--line)}
+  td{display:flex;justify-content:space-between;gap:12px;border:0;padding:2px 0;text-align:right}
+  td::before{content:attr(data-label);color:var(--mute);font-size:.85rem;text-align:left}
+  td.act{position:absolute;top:4px;right:0;padding:0}
+  td.act::before{content:none}
+  button.x{min-width:44px;min-height:44px;font-size:1.5rem}
+}
+</style>
+</head>
+<body>
+<main>
+  <h1>Sổ nợ hai bên</h1>
+  <p class="sub">Ghi nợ và số đã trả. Khi trả hết, sổ tự xoá và mở giao dịch mới.</p>
+
+  <section class="card parties">
+    <div class="wide" style="grid-column:1/-1"><label for="debtor">Ai đang nợ ai</label>
+      <select id="debtor"></select></div>
+  </section>
+
+  <section class="card">
+    <div class="remain">
+      <div class="who" id="who"></div>
+      <div class="big" id="remain">0 đ</div>
+    </div>
+    <div class="stats"><span>Tổng nợ: <b id="tDebt">0</b></span><span>Đã trả: <b id="tPay">0</b></span></div>
+  </section>
+
+  <section class="card">
+    <div class="form">
+      <div><label for="date">Ngày</label><input type="date" id="date"></div>
+      <div><label for="type">Loại</label>
+        <select id="type"><option value="debt">Nợ thêm</option><option value="pay">Đã trả</option></select></div>
+      <div class="wide"><label for="note">Ghi chú</label><input id="note" placeholder="VD: mượn tiền ăn, trả đợt 1"></div>
+      <div><label for="amount">Số tiền (đ)</label><input id="amount" inputmode="numeric" placeholder="0"></div>
+      <button id="add">Thêm</button>
+    </div>
+  </section>
+
+  <section class="card">
+    <div class="tablewrap">
+      <table>
+        <thead><tr><th>Ngày</th><th>Ghi chú</th><th>Loại</th><th class="n">Số tiền</th><th class="n">Tổng nợ cộng dồn</th><th class="n">Còn nợ</th><th></th></tr></thead>
+        <tbody id="rows"></tbody>
+      </table>
+    </div>
+    <div class="empty" id="empty">Chưa có giao dịch. Thêm khoản nợ đầu tiên ở trên.</div>
+  </section>
+
+  <button class="ghost" id="reset">Xoá toàn bộ sổ</button>
+</main>
+<div class="toast" id="toast" role="status"></div>
+
+<script>
+const KEY = "so-no-v1";
+const $ = id => document.getElementById(id);
+const fmt = n => new Intl.NumberFormat("vi-VN").format(n) + " đ";
+const today = () => new Date().toISOString().slice(0, 10);
+
+const DEF_A = "Bà Dung", DEF_B = "Bà Gái";
+let state = { a: DEF_A, b: DEF_B, debtor: "a", rows: [] };
+try { const s = JSON.parse(localStorage.getItem(KEY)); if (s) state = s; } catch (e) {}
+state.a = DEF_A; state.b = DEF_B;
+const save = () => { try { localStorage.setItem(KEY, JSON.stringify(state)); } catch (e) {} };
+
+function toast(msg, err) {
+  const t = $("toast"); t.textContent = msg; t.className = "toast" + (err ? " err" : "");
+  t.style.display = "block"; clearTimeout(toast.t);
+  toast.t = setTimeout(() => t.style.display = "none", 4000);
+}
+
+function totals() {
+  let d = 0, p = 0;
+  state.rows.forEach(r => r.type === "debt" ? d += r.amount : p += r.amount);
+  return { d, p, left: d - p };
+}
+
+function render() {
+  const sel = $("debtor");
+  sel.innerHTML = `<option value="a">${esc(state.a)} nợ ${esc(state.b)}</option><option value="b">${esc(state.b)} nợ ${esc(state.a)}</option>`;
+  sel.value = state.debtor;
+  sel.disabled = state.rows.length > 0;
+
+  const { d, p, left } = totals();
+  const debtor = state.debtor === "a" ? state.a : state.b;
+  const creditor = state.debtor === "a" ? state.b : state.a;
+  if (left < 0) {
+    $("who").textContent = `Số dư: ${debtor} đã trả dư, ${creditor} đang giữ`;
+    $("remain").textContent = fmt(-left);
+    $("remain").className = "big zero";
+  } else {
+    $("who").textContent = state.rows.length ? `${debtor} còn nợ ${creditor}` : "Chưa có giao dịch";
+    $("remain").textContent = fmt(left);
+    $("remain").className = "big" + (left === 0 ? " zero" : "");
+  }
+  $("tDebt").textContent = fmt(d); $("tPay").textContent = fmt(p);
+
+  let run = 0, cum = 0;
+  $("rows").innerHTML = state.rows.map(r => {
+    run += r.type === "debt" ? r.amount : -r.amount;
+    if (r.type === "debt") cum += r.amount;
+    return `<tr><td data-label="Ngày">${r.date}</td><td data-label="Ghi chú">${esc(r.note) || "—"}</td>
+      <td data-label="Loại" class="${r.type}">${r.type === "debt" ? "Nợ thêm" : "Đã trả"}</td>
+      <td data-label="Số tiền" class="n ${r.type}">${r.type === "debt" ? "+" : "−"}${fmt(r.amount)}</td>
+      <td data-label="Tổng nợ cộng dồn" class="n">${fmt(cum)}</td>
+      <td data-label="Còn nợ" class="n ${run < 0 ? "pay" : ""}">${run < 0 ? "Dư " + fmt(-run) : fmt(run)}</td>
+      <td class="act"><button class="x" data-id="${r.id}" aria-label="Xoá dòng">×</button></td></tr>`;
+  }).join("");
+  $("empty").style.display = state.rows.length ? "none" : "block";
+}
+
+function esc(s) { return String(s || "").replace(/[&<>"]/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c])); }
+
+function checkSettled() {
+  if (state.rows.length && totals().left === 0 && totals().p > 0) {
+    const paid = totals().p;
+    state.rows = [];
+    save(); render();
+    toast(`Đã trả hết ${fmt(paid)}. Sổ đã xoá, bắt đầu giao dịch mới.`);
+  }
+}
+
+$("add").onclick = () => {
+  const amount = parseInt($("amount").value.replace(/\D/g, ""), 10);
+  const type = $("type").value;
+  if (!amount) return toast("Nhập số tiền lớn hơn 0.", true);
+  const left = totals().left;
+  if (type === "pay" && !state.rows.length) return toast("Chưa có khoản nợ để trả. Thêm nợ trước.", true);
+  state.rows.push({ id: Date.now(), date: $("date").value || today(), note: $("note").value.trim(), type, amount });
+  $("amount").value = ""; $("note").value = "";
+  save(); render(); checkSettled();
+  if (type === "pay" && amount > left) toast(`Trả dư ${fmt(amount - left)}, đã ghi vào số dư.`);
+};
+
+$("rows").onclick = e => {
+  const id = e.target.dataset.id; if (!id) return;
+  if (!confirm("Xoá dòng này?")) return;
+  state.rows = state.rows.filter(r => r.id != id); save(); render();
+};
+
+$("debtor").onchange = e => { state.debtor = e.target.value; save(); render(); };
+$("reset").onclick = () => { if (confirm("Xoá toàn bộ sổ?")) { state.rows = []; save(); render(); } };
+$("amount").oninput = e => { const v = e.target.value.replace(/\D/g, ""); e.target.value = v ? new Intl.NumberFormat("vi-VN").format(v) : ""; };
+$("amount").onkeydown = e => { if (e.key === "Enter") $("add").click(); };
+
+$("date").value = today();
+render();
+</script>
+</body>
+</html>
